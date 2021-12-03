@@ -4,6 +4,34 @@ import argparse
 import os
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+
+def padding_text(source_text: str) -> bytes:
+    '''
+       Выполняем генерацию ключа для симметричного алгоритма.
+       Генерацию ключей для ассиметричного алгоритма.
+       Сериализацию ассиметричных ключей.
+       Зашифрование ключа симметричного шифрования открытым ключом и сохранение по указанному пути.
+
+       Parameters
+       ----------
+            text : bytes
+               Сообщение, которое будем дополнять.
+               Длина сообщения станет кратна длине шифркуемого блока.
+       Returns
+       -------
+           bytes:
+               Объект класса bytes.
+    '''
+    padder = padding.ANSIX923(32).padder()
+    text = bytes(source_text, 'UTF-8')
+    padded_text = padder.update(text) + padder.finalize()
+    return padded_text
+
 
 def hybrid_key_generation(settings: dict) -> None:
     '''
@@ -14,7 +42,7 @@ def hybrid_key_generation(settings: dict) -> None:
 
     Parameters
     ----------
-         data : dict
+         settings : dict
             Cловарь, в который записываются пути до файлов.
     Returns
     -------
@@ -26,19 +54,6 @@ def hybrid_key_generation(settings: dict) -> None:
 
     print(type(key))
     print(key)
-
-    # сериализация ключа симмеричного алгоритма в файл
-    file_name = 'symmetric.txt'
-    with open(file_name, 'wb') as key_file:
-        key_file.write(key)
-    settings['symmetric_key'] = file_name
-
-    # десериализация ключа симметричного алгоритма
-    with open(file_name, mode='rb') as key_file:
-        content = key_file.read()
-
-    print(type(content))
-    print(content)
 
     # генерация пары ключей для асимметричного алгоритма шифрования
     keys = rsa.generate_private_key(
@@ -68,6 +83,35 @@ def hybrid_key_generation(settings: dict) -> None:
                                                     encryption_algorithm=serialization.NoEncryption()))
     settings['secret_key'] = private_pem
 
+    # зашифрование ключа симметричного шифрования открытым ключом
+    symmetric_key_enc = public_key.encrypt(key,
+                                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
+                                             label=None))
+    print(symmetric_key_enc)
+
+    # сериализация ключа симмеричного алгоритма в файл
+    file_name = 'symmetric.txt'
+    with open(file_name, 'wb') as key_file:
+        key_file.write(symmetric_key_enc)
+    settings['symmetric_key'] = file_name
+
+
+
+def hybrid_data_encryption(settings: dict) -> None:
+    '''
+    Расшифровка симметричного ключа.
+    Зашифровка текста симметричным алгоритмом и сохранение по указанному пути.
+
+    Parameters
+    ----------
+        data : dict
+             Cловарь, в который записываются пути до файлов.
+    Returns
+    -------
+        None:
+            Ничего не возвращаем.
+    '''
+
 
 if __name__ == '__main__':
     settings = {
@@ -81,7 +125,6 @@ if __name__ == '__main__':
 
     hybrid_key_generation(settings)
 
-
     # пишем в файл
     with open('settings.json', 'w') as fp:
         json.dump(settings, fp)
@@ -90,5 +133,3 @@ if __name__ == '__main__':
         json_data = json.load(json_file)
 
     print(json_data)
-
-
