@@ -1,0 +1,1 @@
+{"initial_file": "path/to/inital/file.txt", "encrypted_file": "path/to/encrypted/file.txt", "decrypted_file": "path/to/decrypted/file.txt", "symmetric_key": "symmetric.txt", "public_key": "public.pem", "secret_key": "private.pem"}
