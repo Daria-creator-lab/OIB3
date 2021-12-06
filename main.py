@@ -1,49 +1,47 @@
 # вариант1 AES
-import json
+
 import argparse
+import json
 import os
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-# from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import load_pem_public_key, load_pem_private_key
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+iv = os.urandom(16)
 
 
-def padding_text(source_text: str) -> bytes:
-    '''
-       Выполняем генерацию ключа для симметричного алгоритма.
-       Генерацию ключей для ассиметричного алгоритма.
-       Сериализацию ассиметричных ключей.
-       Зашифрование ключа симметричного шифрования открытым ключом и сохранение по указанному пути.
-
-       Parameters
-       ----------
-            text : bytes
-               Сообщение, которое будем дополнять.
-               Длина сообщения станет кратна длине шифркуемого блока.
-       Returns
-       -------
-           bytes:
-               Объект класса bytes.
-    '''
-    from cryptography.hazmat.primitives import padding
-
-    padder = padding.ANSIX923(32).padder()
-    text = bytes(source_text, 'UTF-8')
-    padded_text = padder.update(text) + padder.finalize()
-    print('добавление')
-    print(text)
-    return padded_text
+# def padding_text(source_text: str) -> bytes:
+#     '''
+#        Добаляет символы в конец строки, чтобы длина сообщения стала кратна длине шифркуемого блока.
+#
+#        Parameters
+#        ----------
+#             source_text : str
+#                Сообщение, которое будем дополнять.
+#                Длина сообщения станет кратна длине шифркуемого блока.
+#        Returns
+#        -------
+#            bytes:
+#                Объект класса bytes.
+#     '''
+#     from cryptography.hazmat.primitives import padding
+#
+#     padder = padding.ANSIX923(32).padder()
+#     text = bytes(source_text, 'UTF-8')
+#     padded_text = padder.update(text) + padder.finalize()
+#     # print('добавление')
+#     # print(text)
+#     return padded_text
 
 
 def hybrid_key_generation(settings: dict) -> None:
     '''
-    Выполняем генерацию ключа для симметричного алгоритма.
+    Выполняет генерацию ключа для симметричного алгоритма.
     Генерацию ключей для ассиметричного алгоритма.
     Сериализацию ассиметричных ключей.
-    Зашифрование ключа симметричного шифрования открытым ключом и сохранение по указанному пути.
+    Зашифровывает ключ симметричного шифрования открытым ключом и сохраненяет по указанному пути.
 
     Parameters
     ----------
@@ -68,27 +66,24 @@ def hybrid_key_generation(settings: dict) -> None:
     private_key = keys
     public_key = keys.public_key()
 
-    # print(type(private_key))
-    # print(private_key)
-    # print(type(public_key))
-    # print(public_key)
-
     # сериализация открытого ключа в файл
     public_pem = 'public.pem'
-    with open(public_pem, 'wb') as public_out:
+    with open(public_pem, mode='wb') as public_out:
         public_out.write(public_key.public_bytes(encoding=serialization.Encoding.PEM,
                                                  format=serialization.PublicFormat.SubjectPublicKeyInfo))
     settings['public_key'] = public_pem
 
     # сериализация закрытого ключа в файл
     private_pem = 'private.pem'
-    with open(private_pem, 'wb') as private_out:
+    with open(private_pem, mode='wb') as private_out:
         private_out.write(private_key.private_bytes(encoding=serialization.Encoding.PEM,
                                                     format=serialization.PrivateFormat.TraditionalOpenSSL,
                                                     encryption_algorithm=serialization.NoEncryption()))
     settings['secret_key'] = private_pem
 
     # зашифрование ключа симметричного шифрования открытым ключом
+    from cryptography.hazmat.primitives.asymmetric import padding
+
     symmetric_key_enc = public_key.encrypt(key,
                                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
                                              label=None))
@@ -97,7 +92,7 @@ def hybrid_key_generation(settings: dict) -> None:
 
     # сериализация ключа симмеричного алгоритма в файл
     file_name = 'symmetric.txt'
-    with open(file_name, 'wb') as key_file:
+    with open(file_name, mode='wb') as key_file:
         key_file.write(symmetric_key_enc)
     settings['symmetric_key'] = file_name
 
@@ -109,7 +104,7 @@ def hybrid_data_encryption(settings: dict) -> None:
 
     Parameters
     ----------
-        data : dict
+        settings : dict
              Cловарь, в который записываются пути до файлов.
     Returns
     -------
@@ -122,11 +117,13 @@ def hybrid_data_encryption(settings: dict) -> None:
         content = key_file.read()
 
     # десериализация закрытого ключа
-    with open(settings['secret_key'], 'rb') as pem_in:
+    with open(settings['secret_key'], mode='rb') as pem_in:
         private_bytes = pem_in.read()
     d_private_key = load_pem_private_key(private_bytes, password=None, )
 
     # дешифрование ключа симметричного шифрования асимметричным алгоритмом
+    from cryptography.hazmat.primitives.asymmetric import padding
+
     dc_symmetric_key = d_private_key.decrypt(content,
                                   padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
                                                label=None))
@@ -134,26 +131,95 @@ def hybrid_data_encryption(settings: dict) -> None:
     print(dc_symmetric_key)
 
     # чтение исходных данных
-    with open(settings['initial_file'], 'r') as source_text:
-        text = source_text.read()
+    with open(settings['initial_file'], mode='r') as source_text:
+        tmp = source_text.read()
+    text = bytes(tmp, 'UTF-8')
+    print('исходный текст')
+    print(text)
+
+    # паддинг данных для работы блочного шифра - делаем длину сообщения кратной длине шифркуемого блока
+    from cryptography.hazmat.primitives import padding
+
+    padder = padding.ANSIX923(32).padder()
+    padded_text = padder.update(text) + padder.finalize()
+    print('исходный текст с добавкой')
+    print(padded_text)
 
     # шифрование текста симметричным алгоритмом
-    iv = os.urandom(
-        16)  # случайное значение для инициализации блочного режима, должно быть размером с блок и каждый раз новым
+    # iv = os.urandom(
+    #     16)  # случайное значение для инициализации блочного режима, должно быть размером с блок и каждый раз новым
     cipher = Cipher(algorithms.AES(dc_symmetric_key), modes.CBC(iv))
     encryptor = cipher.encryptor()
-
-    padded_text = padding_text(text)
     enc_text = encryptor.update(padded_text) + encryptor.finalize()
 
-    print('шифрование текста')
+    print('шифрованый текст')
     print(enc_text)
 
     # запись зашифрованного текста в файл
     file_name = 'encrypted_file.txt'
-    with open(file_name, 'wb') as f:
+    with open(file_name, mode='wb') as f:
         f.write(enc_text)
     settings['encrypted_file'] = file_name
+
+
+def hybrid_data_decryption(settings: dict) -> None:
+    '''
+    Расшифровывает текст симметричным алгоритмом и сохраняет по указанному пути.
+
+    Parameters
+    ----------
+        settings : dict
+             Cловарь, в который записываются пути до файлов.
+    Returns
+    -------
+        None:
+            Ничего не возвращаем.
+    '''
+
+    # from cryptography.hazmat.primitives import padding
+
+    # десериализация текста
+    with open(settings['encrypted_file'], mode='rb') as dc_file:
+        dc_file_content = dc_file.read()
+    print('чтение зашифрованного текста из файла')
+    print(dc_file_content)
+
+    # десериализация ключа симметричного алгоритма
+    with open(settings['symmetric_key'], mode='rb') as key_file:
+        content = key_file.read()
+
+    # десериализация закрытого ключа
+    with open(settings['secret_key'], mode='rb') as pem_in:
+        private_bytes = pem_in.read()
+    d_private_key = load_pem_private_key(private_bytes, password=None, )
+
+    from cryptography.hazmat.primitives.asymmetric import padding
+    # дешифрование ключа симметричного шифрования асимметричным алгоритмом
+    dc_symmetric_key = d_private_key.decrypt(content,
+                                  padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
+                                               label=None))
+    print('расшифрованный ключ')
+    print(dc_symmetric_key)
+
+
+    # дешифрование и депаддинг текста симметричным алгоритмом
+    from cryptography.hazmat.primitives import padding
+
+    # iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(dc_symmetric_key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    dc_text = decryptor.update(dc_file_content) + decryptor.finalize()
+
+    unpadder = padding.ANSIX923(32).unpadder()
+    unpadded_dc_text = unpadder.update(dc_text) + unpadder.finalize()
+
+    print('расшифрованный текст')
+    print(dc_text)
+    print(dc_text.decode('utf-8'))
+    print('расшифрованный текст')
+    print(unpadded_dc_text)
+    print(unpadded_dc_text.decode('utf-8'))
+
 
 if __name__ == '__main__':
     settings = {
@@ -165,9 +231,15 @@ if __name__ == '__main__':
         'secret_key': 'path/to/secret/key.pem',
     }
 
+    # with open('Hello.txt', 'r') as f:
+    #     m = f.read()
+    # print(m)
+    # text = bytes(m, 'UTF-8')
+    # print(text)
 
     hybrid_key_generation(settings)
     hybrid_data_encryption(settings)
+    hybrid_data_decryption(settings)
 
     # пишем в файл
     with open('settings.json', 'w') as fp:
