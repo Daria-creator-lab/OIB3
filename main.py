@@ -9,31 +9,9 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import load_pem_public_key, load_pem_private_key
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-iv = os.urandom(16)
+# iv = os.urandom(16)
 
 
-# def padding_text(source_text: str) -> bytes:
-#     '''
-#        Добаляет символы в конец строки, чтобы длина сообщения стала кратна длине шифркуемого блока.
-#
-#        Parameters
-#        ----------
-#             source_text : str
-#                Сообщение, которое будем дополнять.
-#                Длина сообщения станет кратна длине шифркуемого блока.
-#        Returns
-#        -------
-#            bytes:
-#                Объект класса bytes.
-#     '''
-#     from cryptography.hazmat.primitives import padding
-#
-#     padder = padding.ANSIX923(32).padder()
-#     text = bytes(source_text, 'UTF-8')
-#     padded_text = padder.update(text) + padder.finalize()
-#     # print('добавление')
-#     # print(text)
-#     return padded_text
 
 
 def hybrid_key_generation(settings: dict) -> None:
@@ -140,14 +118,13 @@ def hybrid_data_encryption(settings: dict) -> None:
     # паддинг данных для работы блочного шифра - делаем длину сообщения кратной длине шифркуемого блока
     from cryptography.hazmat.primitives import padding
 
-    padder = padding.ANSIX923(32).padder()
+    padder = padding.ANSIX923(128).padder()
     padded_text = padder.update(text) + padder.finalize()
     print('исходный текст с добавкой')
     print(padded_text)
 
     # шифрование текста симметричным алгоритмом
-    # iv = os.urandom(
-    #     16)  # случайное значение для инициализации блочного режима, должно быть размером с блок и каждый раз новым
+    iv = os.urandom(16)  # случайное значение для инициализации блочного режима, должно быть размером с блок и каждый раз новым
     cipher = Cipher(algorithms.AES(dc_symmetric_key), modes.CBC(iv))
     encryptor = cipher.encryptor()
     enc_text = encryptor.update(padded_text) + encryptor.finalize()
@@ -205,12 +182,12 @@ def hybrid_data_decryption(settings: dict) -> None:
     # дешифрование и депаддинг текста симметричным алгоритмом
     from cryptography.hazmat.primitives import padding
 
-    # iv = os.urandom(16)
+    iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(dc_symmetric_key), modes.CBC(iv))
     decryptor = cipher.decryptor()
     dc_text = decryptor.update(dc_file_content) + decryptor.finalize()
 
-    unpadder = padding.ANSIX923(32).unpadder()
+    unpadder = padding.ANSIX923(128).unpadder()
     unpadded_dc_text = unpadder.update(dc_text) + unpadder.finalize()
 
     print('расшифрованный текст')
@@ -231,11 +208,20 @@ if __name__ == '__main__':
         'secret_key': 'path/to/secret/key.pem',
     }
 
-    # with open('Hello.txt', 'r') as f:
-    #     m = f.read()
-    # print(m)
-    # text = bytes(m, 'UTF-8')
-    # print(text)
+    # parser = argparse.ArgumentParser()
+    # group = parser.add_mutually_exclusive_group(required=True)
+    #
+    # group.add_argument('-gen', '--generation', help='Запускает режим генерации ключей')
+    # group.add_argument('-enc', '--encryption', help='Запускает режим шифрования')
+    # group.add_argument('-dec', '--decryption', help='Запускает режим дешифрования')
+    #
+    # args = parser.parse_args()
+    # if args.generation is not None:
+    #     hybrid_key_generation(settings)
+    # elif args.encryption is not None:
+    #     hybrid_data_encryption(settings)
+    # else:
+    #     hybrid_data_decryption(settings)
 
     hybrid_key_generation(settings)
     hybrid_data_encryption(settings)
